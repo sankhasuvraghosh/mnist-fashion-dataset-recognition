@@ -15,7 +15,7 @@ class_names = ['T-shirt/top','Trouser','Pullover','Dress','Coat',
                'Sandal','Shirt','Sneaker','Bag','Ankle boot']
 transform=transforms.Compose([ transforms.ToTensor(),transforms.Normalize((0.5,), (0.5,))])
 train_data=FashionMNIST(root="data", download=True,train=True,transform=transform)
-test_data=FashionMNIST(root="data",download=True,train=True,transform=transform)
+test_data=FashionMNIST(root="data",download=True,train=False,transform=transform)
 train_loader=DataLoader(train_data,batch_size=64,shuffle=True)
 test_loader=DataLoader(test_data,batch_size=64,shuffle=False)
 class fashion_model(nn.Module):
@@ -34,7 +34,7 @@ class fashion_model(nn.Module):
         x=self.conv3(x)
         x=self.classifier(x)
         return x
-class_names = ['T-shirt/top','Trouser','Pullover','Dress','Coat','Sandal','Shirt','Sneaker','Bag','Ankle boot']
+
 loss_fn=nn.CrossEntropyLoss()
 model=fashion_model().to(device)
 optimizer=opt.Adam(model.parameters(),lr=0.001,weight_decay=1e-4)
@@ -53,7 +53,7 @@ for epoch in range(epochs):
         optimizer.step()
         total_loss+=loss.item()
     scheduler.step()
-    print(f"epoch{epoch+1}/{epochs}    |   loss= {total_loss}")
+    print(f"epoch{epoch+1}/{epochs}    |  avg loss=  {total_loss / len(train_loader):.4f}")
 
 model.eval()
 correct=0
@@ -67,7 +67,7 @@ with torch.no_grad():
          correct+=(predictions==labels).sum().item()
          total+=labels.size(0)
 accuracy=100*correct/total
-print(f"accuracy : {accuracy}")
+print(f"accuracy : {accuracy:.2f}")
 torch.save(model.state_dict(),"fashion_dataset_model.pth")
 print("model saved as  : fashion_dataset_model.pth")
 index=int(input("enter the index number of the fashion "))
@@ -84,3 +84,23 @@ print("user picked image index", index)
 print("actual label" ,class_names[true_label])
 print("model prediction ", class_names[predicted_label])
 
+all_preds, all_labels = [], []
+with torch.no_grad():
+    for images, labels in test_loader:
+        outputs = model(images.to(device))
+        all_preds  += outputs.argmax(dim=1).cpu().tolist()
+        all_labels += labels.tolist()
+
+cm = confusion_matrix(all_labels, all_preds)
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm, annot=True, fmt='d',
+            xticklabels=class_names,
+            yticklabels=class_names, cmap='Blues')
+plt.title('Confusion Matrix — Fashion-MNIST')
+plt.ylabel('Actual')
+plt.xlabel('Predicted')
+plt.tight_layout()
+plt.savefig('confusion_matrix.png')
+plt.show()
+
+print(classification_report(all_labels, all_preds, target_names=class_names))
